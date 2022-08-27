@@ -1,16 +1,22 @@
 #include <esp32cam.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#define BUTTON_PIN 13
 
-const char* WIFI_SSID = "globalnet";
-const char* WIFI_PASS = "39581064";
+const char* WIFI_SSID = "xxx";
+const char* WIFI_PASS = "xxxxxx";
 
 WebServer server(80);
 
 static auto loRes = esp32cam::Resolution::find(800, 600);
 static auto hiRes = esp32cam::Resolution::find(1600, 1200);
-const uint16_t port = 8090;
-const char * host = "192.168.1.5";
+const uint16_t port = 8091;
+const char * host = "10.54.234.126";
+int Switchmode =0;
+//button
+int currentState; 
+int ModeN=0;
+
 void handleBmp()
 {
   if (!esp32cam::Camera.changeResolution(loRes)) {
@@ -119,6 +125,7 @@ void setup()
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.print(".");
   }
 
   Serial.print("http://");
@@ -134,12 +141,24 @@ void setup()
 
 
   server.begin();
+  //button
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
 void loop()
 {
+//Sendin Socket
   server.handleClient();
-  while(10>touchRead(12)){
+//SwitchingMode
+  SwitchButtons();
+  
+}
+
+
+
+
+void sendsocket(String Mode)
+{
    WiFiClient client;
     if (!client.connect(host, port)) {
  
@@ -150,12 +169,50 @@ void loop()
     }
     Serial.println("Connected to server successful!");
  
-    client.print("SwitchToMode1");
+    client.print(Mode);
     Serial.println(touchRead(12));
-    delay(2000);
     Serial.println("Disconnecting...");
     client.stop();
- 
+    delay(1000);
+}
+void SwitchButtons(){
+   //touch Switching Mode
+   int SwitchM=touchRead(12);
+   int Valid=touchRead(14);
+  if(SwitchM<10 && SwitchM>3 && Valid>40 ){
+    delay(50);
+    if(SwitchM == touchRead(12) ){
+    Serial.println(SwitchM);
+    Serial.println(touchRead(12));
+    Serial.println("mode1");
+    ModeN++;
+    if(ModeN == 4 ){ModeN =1;}
+    Serial.println(ModeN);
+    sendsocket(String(ModeN));
+    delay(1000);
+    }
+  }
+  //touch validation 
+  
+if(Valid<10 && Valid>3  && SwitchM>40){
+    delay(50);
+    if(Valid == touchRead(14) ){
+    Serial.println(Valid);
+    Serial.println(touchRead(14));
+    Serial.println("valid");
+    sendsocket(String("OK"));
+  delay(1000);
+    }
+  }
+  //alert
+  if(Valid<10 && Valid>3 && SwitchM<10 && SwitchM>3 ){
+    delay(50);
+    
+    Serial.println(Valid);
+    Serial.println(touchRead(14));
+    Serial.println("ALERT");
+    sendsocket(String("ALERT"));
+  delay(1000);
     
   }
-}
+  }
